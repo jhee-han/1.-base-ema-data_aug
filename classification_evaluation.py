@@ -21,10 +21,23 @@ import csv
 NUM_CLASSES = len(my_bidict)
 
 #TODO: Begin of your code
-def get_label(model, model_input, device):
+def get_label(model, model_input, device): #이미지가 해당 클래스(label)에서 나올 확률-> 가장 높은 확률의 클래스(label) 반환
     # Write your code here, replace the random classifier with your trained model
     # and return the predicted label, which is a tensor of shape (batch_size,)
-    answer = model(model_input, device)
+    
+    B = model_input.size(0) #B
+    model_input = model_input.to(device)
+
+    a_log_likelihood = []
+
+    for nr_label in range (NUM_CLASSES):
+        labels = torch.full((B,),nr_label, dtype=torch.long)
+        out = model(model_input, labels)
+        log_likelihood = - discretized_mix_logistic_loss(model_input,out)
+        a_log_likelihood.append(log_likelihood.view(-1,1))
+
+    log_likelihood = torch.cat(a_log_likelihood,dim=1)
+    answer = torch.argmax(log_likelihood,dim=1)
     return answer
 # End of your code
 
@@ -68,7 +81,7 @@ if __name__ == '__main__':
 
     #TODO:Begin of your code
     #You should replace the random classifier with your trained model
-    model = random_classifier(NUM_CLASSES)
+    model= PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,num_classes=4, nr_embedding=40)
     #End of your code
     
     model = model.to(device)

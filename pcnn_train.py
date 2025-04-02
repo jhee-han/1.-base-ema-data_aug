@@ -23,10 +23,11 @@ def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, m
     deno =  args.batch_size * np.prod(args.obs) * np.log(2.)        
     loss_tracker = mean_tracker()
     
-    for batch_idx, item in enumerate(tqdm(data_loader)):
-        model_input, _ = item
+    for batch_idx, (model_input,labels) in enumerate(tqdm(data_loader)):
         model_input = model_input.to(device)
-        model_output = model(model_input)
+        # labels = labels.to(device)
+        model_output = model(model_input,labels)
+        
         loss = loss_op(model_input, model_output)
         loss_tracker.update(loss.item()/deno)
         if mode == 'training':
@@ -177,7 +178,7 @@ if __name__ == '__main__':
     args.obs = (3, 32, 32)
     input_channels = args.obs[0]
     
-    loss_op   = lambda real, fake : discretized_mix_logistic_loss(real, fake)
+    loss_op   = lambda real, fake : discretized_mix_logistic_loss(real, fake) #model_input, model_output
     sample_op = lambda x : sample_from_discretized_mix_logistic(x, args.nr_logistic_mix)
 
     model = PixelCNN(nr_resnet=args.nr_resnet, nr_filters=args.nr_filters, 

@@ -33,7 +33,7 @@ def log_prob_from_logits(x):
     return x - m - torch.log(torch.sum(torch.exp(x - m), dim=axis, keepdim=True))
 
 
-def discretized_mix_logistic_loss(x, l):
+def discretized_mix_logistic_loss(x, l): #If you want to get the log prob of each picture, you should modify the last line 
     """ log-likelihood for mixture of discretized logistics, assumes the data has been rescaled to [-1,1] interval """
     # Pytorch ordering
     x = x.permute(0, 2, 3, 1)
@@ -98,7 +98,7 @@ def discretized_mix_logistic_loss(x, l):
     log_probs        = cond * log_cdf_plus + (1. - cond) * inner_out
     log_probs        = torch.sum(log_probs, dim=3) + log_prob_from_logits(logit_probs)
     
-    return -torch.sum(log_sum_exp(log_probs))
+    return -torch.sum(log_sum_exp(log_probs), dim=[1,2])#(B,)
 
 
 def to_one_hot(tensor, n, fill_with=1.):
@@ -111,18 +111,18 @@ def to_one_hot(tensor, n, fill_with=1.):
 
 def sample_from_discretized_mix_logistic(l, nr_mix):
     # Pytorch ordering
-    l = l.permute(0, 2, 3, 1)
+    l = l.permute(0, 2, 3, 1) #(B,H,W,C)
     ls = [int(y) for y in l.size()]
-    xs = ls[:-1] + [3]
+    xs = ls[:-1] + [3] #(B,H,W,3)
 
     # unpack parameters
     logit_probs = l[:, :, :, :nr_mix]
-    l = l[:, :, :, nr_mix:].contiguous().view(xs + [nr_mix * 3])
+    l = l[:, :, :, nr_mix:].contiguous().view(xs + [nr_mix * 3]) #(B,H,W,nr_mix * 3) pixel mean,variance, rgb coefficient
     # sample mixture indicator from softmax
-    temp = torch.FloatTensor(logit_probs.size())
+    temp = torch.FloatTensor(logit_probs.size()) #(B,H,W,nr_mix )
     if l.is_cuda : temp = temp.cuda()
     temp.uniform_(1e-5, 1. - 1e-5)
-    temp = logit_probs.data - torch.log(- torch.log(temp))
+    temp = logit_probs.data - torch.log(- torch.log(temp)) #Gumbel-Max Trick
     _, argmax = temp.max(dim=3)
 
     one_hot = to_one_hot(argmax, nr_mix)
@@ -174,7 +174,7 @@ def right_shift(x, pad=None):
     return pad(x)
 
 
-def sample(model, sample_batch_size, obs, sample_op):
+def sample(model, sample_batch_size, obs, sample_op,labels): #obs는 이미지 크기 #[C,H,W]
     model.train(False)
     with torch.no_grad():
         data = torch.zeros(sample_batch_size, obs[0], obs[1], obs[2])
@@ -182,7 +182,7 @@ def sample(model, sample_batch_size, obs, sample_op):
         for i in range(obs[1]):
             for j in range(obs[2]):
                 data_v = data
-                out   = model(data_v, sample=True)
+                out   = model(data_v,label=labels, sample=True)
                 out_sample = sample_op(out)
                 data[:, :, i, j] = out_sample.data[:, :, i, j]
     return data

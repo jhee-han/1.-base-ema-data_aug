@@ -26,7 +26,11 @@ def my_sample(model, gen_data_dir, sample_batch_size = 25, obs = (3,32,32), samp
     for label in my_bidict:
         print(f"Label: {label}")
         #generate images for each label, each label has 25 images
-        sample_t = sample(model, sample_batch_size, obs, sample_op)
+
+        nr_label = my_bidict[label]
+        labels = torch.full((sample_batch_size,), nr_label, dtype=torch.long, device=device)
+
+        sample_t = sample(model, sample_batch_size, obs, sample_op,labels)
         sample_t = rescaling_inv(sample_t)
         save_images(sample_t, os.path.join(gen_data_dir), label=label)
     pass
@@ -49,7 +53,7 @@ if __name__ == "__main__":
 
     #TODO: Begin of your code
     #Load your model and generate images in the gen_data_dir, feel free to modify the model
-    model = PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5)
+    model = PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,nr_class=4, nr_embedding=40)
     model = model.to(device)
     model = model.eval()
     #End of your code
