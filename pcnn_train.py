@@ -33,7 +33,7 @@ def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, m
             loss = loss_op(model_input, model_output, Bayes=False)
         else:
             loss = loss_op(model_input, model_output,Bayes=True)
-            
+
         loss_tracker.update(loss.item()/deno)
         if mode == 'training':
             optimizer.zero_grad()
@@ -183,7 +183,9 @@ if __name__ == '__main__':
     args.obs = (3, 32, 32)
     input_channels = args.obs[0]
     
-    loss_op   = lambda real, fake : discretized_mix_logistic_loss(real, fake) #model_input, model_output
+    def loss_op(real, fake, Bayes=False):
+        return discretized_mix_logistic_loss(real, fake, Bayes=False)
+
     sample_op = lambda x : sample_from_discretized_mix_logistic(x, args.nr_logistic_mix)
 
     model = PixelCNN(nr_resnet=args.nr_resnet, nr_filters=args.nr_filters, 
@@ -229,7 +231,7 @@ if __name__ == '__main__':
         
         if epoch % args.sampling_interval == 0:
             print('......sampling......')
-            class_labels = torch.tensor([0, 1, 2, 3], dtype=torch.long, device=device) #unconditional 일 때 label이 필요 없으면 여기 label정의하지 않는 것?
+            class_labels = torch.tensor([0, 1, 2, 3] * (args.sample_batch_size // 4), device=device) #unconditional 일 때 label이 필요 없으면 여기 label정의하지 않는 것?
             #pixelcnn에서 label을 가지고 오게 하는 것?
             sample_t = sample(model, args.sample_batch_size, args.obs, sample_op,class_labels) #conditional
             sample_t = rescaling_inv(sample_t)
