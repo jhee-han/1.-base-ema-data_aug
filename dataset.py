@@ -40,6 +40,8 @@ class CPEN455Dataset(Dataset):
 
     def __getitem__(self, idx):
         img_path, category = self.samples[idx]
+        # pdb.set_trace
+        # print("DEBUG label:", category)
         if category in my_bidict.values():
             category_name = my_bidict.inverse[category]
         else:
@@ -51,7 +53,9 @@ class CPEN455Dataset(Dataset):
             image = replicate_color_channel(image)
         if self.transform:
           image = self.transform(image)
-        return image, category_name
+
+        category_tensor = torch.tensor(category, dtype = torch.long)
+        return image, category_tensor
     
     def get_all_images(self, label):
         return [img for img, cat in self.samples if cat == label]

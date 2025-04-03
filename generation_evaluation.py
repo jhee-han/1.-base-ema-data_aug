@@ -17,6 +17,7 @@ from dataset import *
 import os
 import torch
 import argparse
+import pdb
 #TODO: Begin of your code
 # This is a demonstration of how to call the sample function, feel free to modify it
 # You should modify this sample function to get the generated images from your model
@@ -29,6 +30,7 @@ def my_sample(model, gen_data_dir, sample_batch_size = 25, obs = (3,32,32), samp
 
         nr_label = my_bidict[label]
         labels = torch.full((sample_batch_size,), nr_label, dtype=torch.long, device=device)
+        pdb.set_trace()
 
         sample_t = sample(model, sample_batch_size, obs, sample_op,labels)
         sample_t = rescaling_inv(sample_t)
@@ -53,7 +55,8 @@ if __name__ == "__main__":
 
     #TODO: Begin of your code
     #Load your model and generate images in the gen_data_dir, feel free to modify the model
-    model = PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,nr_class=4, nr_embedding=40)
+    model = PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,num_classes=4, embedding_dim=40)
+    # model.load_state
     model = model.to(device)
     model = model.eval()
     #End of your code

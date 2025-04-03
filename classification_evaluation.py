@@ -21,7 +21,8 @@ import csv
 NUM_CLASSES = len(my_bidict)
 
 #TODO: Begin of your code
-def get_label(model, model_input, device): #이미지가 해당 클래스(label)에서 나올 확률-> 가장 높은 확률의 클래스(label) 반환
+def get_label(model, model_input, device): 
+    #이미지가 해당 클래스(label)에서 나올 확률-> 가장 높은 확률의 클래스(label) 반환
     # Write your code here, replace the random classifier with your trained model
     # and return the predicted label, which is a tensor of shape (batch_size,)
     
@@ -81,7 +82,7 @@ if __name__ == '__main__':
 
     #TODO:Begin of your code
     #You should replace the random classifier with your trained model
-    model= PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,num_classes=4, nr_embedding=40)
+    model= PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,class_labels=4, nr_embedding=40)
     #End of your code
     
     model = model.to(device)

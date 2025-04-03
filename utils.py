@@ -7,6 +7,7 @@ from torch.nn.utils import weight_norm as wn
 import numpy as np
 import os
 from PIL import Image
+import pdb
 
 
 def concat_elu(x):
@@ -33,7 +34,7 @@ def log_prob_from_logits(x):
     return x - m - torch.log(torch.sum(torch.exp(x - m), dim=axis, keepdim=True))
 
 
-def discretized_mix_logistic_loss(x, l): #If you want to get the log prob of each picture, you should modify the last line 
+def discretized_mix_logistic_loss(x, l,Bayes=False): #If you want to get the log prob of each picture, you should modify the last line 
     """ log-likelihood for mixture of discretized logistics, assumes the data has been rescaled to [-1,1] interval """
     # Pytorch ordering
     x = x.permute(0, 2, 3, 1)
@@ -98,7 +99,23 @@ def discretized_mix_logistic_loss(x, l): #If you want to get the log prob of eac
     log_probs        = cond * log_cdf_plus + (1. - cond) * inner_out
     log_probs        = torch.sum(log_probs, dim=3) + log_prob_from_logits(logit_probs)
     
-    return -torch.sum(log_sum_exp(log_probs), dim=[1,2])#(B,)
+    if Bayes:
+        # => (B,) 반환
+        per_pixel_ll = log_sum_exp(log_probs)   # (B,H,W)
+        per_image_ll = torch.sum(per_pixel_ll, dim=[1,2])  # (B,)
+        return - per_image_ll
+    else:
+        # => scalar
+        return -torch.sum(log_sum_exp(log_probs))  # shape ()
+
+
+
+    
+    # return -torch.sum(log_sum_exp(log_probs)) #scalar
+    # per_pixel_ll = log_sum_exp(log_probs)   # shape = (B,H,W)
+    # # sum over H,W => shape (B,)
+    # per_image_ll = torch.sum(per_pixel_ll, dim=[1,2])
+    # return - per_image_ll #(B,)
 
 
 def to_one_hot(tensor, n, fill_with=1.):
@@ -182,7 +199,7 @@ def sample(model, sample_batch_size, obs, sample_op,labels): #obs는 이미지 �
         for i in range(obs[1]):
             for j in range(obs[2]):
                 data_v = data
-                out   = model(data_v,label=labels, sample=True)
+                out   = model(data_v,class_labels=labels, sample=True)
                 out_sample = sample_op(out)
                 data[:, :, i, j] = out_sample.data[:, :, i, j]
     return data

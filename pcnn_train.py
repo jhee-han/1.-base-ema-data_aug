@@ -12,7 +12,7 @@ from tqdm import tqdm
 from pprint import pprint
 import argparse
 from pytorch_fid.fid_score import calculate_fid_given_paths
-
+import pdb
 
 def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, mode = 'training'):
     if mode == 'training':
@@ -24,11 +24,16 @@ def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, m
     loss_tracker = mean_tracker()
     
     for batch_idx, (model_input,labels) in enumerate(tqdm(data_loader)):
-        model_input = model_input.to(device)
-        # labels = labels.to(device)
-        model_output = model(model_input,labels)
-        
-        loss = loss_op(model_input, model_output)
+        model_input = model_input.to(device) #model_input.shape torch.Size([64, 3, 32, 32])
+        labels = labels.to(device)
+        model_output = model(model_input,labels) #model_output.shape torch.Size([64, 50, 32, 32])
+        # pdb.set_trace()
+        # sum over discretized_mix_logistic_loss
+        if mode == 'training':
+            loss = loss_op(model_input, model_output, Bayes=False)
+        else:
+            loss = loss_op(model_input, model_output,Bayes=True)
+            
         loss_tracker.update(loss.item()/deno)
         if mode == 'training':
             optimizer.zero_grad()
@@ -204,14 +209,14 @@ if __name__ == '__main__':
         
         # decrease learning rate
         scheduler.step()
-        train_or_test(model = model,
-                      data_loader = test_loader,
-                      optimizer = optimizer,
-                      loss_op = loss_op,
-                      device = device,
-                      args = args,
-                      epoch = epoch,
-                      mode = 'test')
+        # train_or_test(model = model,
+        #               data_loader = test_loader,
+        #               optimizer = optimizer,
+        #               loss_op = loss_op,
+        #               device = device,
+        #               args = args,
+        #               epoch = epoch,
+        #               mode = 'test')
         
         train_or_test(model = model,
                       data_loader = val_loader,
@@ -224,7 +229,9 @@ if __name__ == '__main__':
         
         if epoch % args.sampling_interval == 0:
             print('......sampling......')
-            sample_t = sample(model, args.sample_batch_size, args.obs, sample_op)
+            class_labels = torch.tensor([0, 1, 2, 3], dtype=torch.long, device=device) #unconditional 일 때 label이 필요 없으면 여기 label정의하지 않는 것?
+            #pixelcnn에서 label을 가지고 오게 하는 것?
+            sample_t = sample(model, args.sample_batch_size, args.obs, sample_op,class_labels) #conditional
             sample_t = rescaling_inv(sample_t)
             save_images(sample_t, args.sample_dir)
             sample_result = wandb.Image(sample_t, caption="epoch {}".format(epoch))
