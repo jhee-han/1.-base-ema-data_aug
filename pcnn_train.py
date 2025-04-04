@@ -232,7 +232,6 @@ if __name__ == '__main__':
         if epoch % args.sampling_interval == 0:
             print('......sampling......')
             class_labels = torch.tensor([0, 1, 2, 3] * (args.sample_batch_size // 4), device=device) #unconditional 일 때 label이 필요 없으면 여기 label정의하지 않는 것?
-            pdb.set_trace()
             #pixelcnn에서 label을 가지고 오게 하는 것?
             sample_t = sample(model, args.sample_batch_size, args.obs, sample_op,class_labels) #conditional
             sample_t = rescaling_inv(sample_t)
