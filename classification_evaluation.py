@@ -48,7 +48,7 @@ def classifier(model, data_loader, device):
     for batch_idx, item in enumerate(tqdm(data_loader)):
         model_input, categories = item
         model_input = model_input.to(device)
-        original_label = [my_bidict[item] for item in categories]
+        original_label = [my_bidict[item.item()] for item in categories]
         original_label = torch.tensor(original_label, dtype=torch.int64).to(device)
         answer = get_label(model, model_input, device)
         correct_num = torch.sum(answer == original_label)
@@ -82,18 +82,27 @@ if __name__ == '__main__':
 
     #TODO:Begin of your code
     #You should replace the random classifier with your trained model
-    model= PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,class_labels=4, nr_embedding=40)
+    model= PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5)
     #End of your code
     
     model = model.to(device)
     #Attention: the path of the model is fixed to './models/conditional_pixelcnn.pth'
     #You should save your model to this path
-    model_path = os.path.join(os.path.dirname(__file__), 'models/conditional_pixelcnn.pth')
+    model_path = os.path.join(os.path.dirname(__file__), 'models/conditional_pixelcnn.pth') #이부분은 수정하면 안됨 나중에 돌려놓기기
+    
+    #나중에 삭제하기 model.eval전까지
+    # model_path = 'models/conditional_pixelcnn.pth'
+    if os.path.exists(model_path):
+        model.load_state_dict(torch.load(model_path))
+        print('✅ model parameters loaded')
+    else:
+        raise FileNotFoundError(f"❌ Model file not found at {model_path}")
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path))
         print('model parameters loaded')
     else:
         raise FileNotFoundError(f"Model file not found at {model_path}")
+
     model.eval()
     
     acc = classifier(model = model, data_loader = dataloader, device = device)
