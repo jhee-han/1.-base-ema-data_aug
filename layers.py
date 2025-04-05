@@ -134,6 +134,11 @@ class gated_resnet(nn.Module):
             self.film_gamma = nn.Linear(num_filters,num_filters)
             self.film_beta = nn.Linear(num_filters,num_filters)
 
+            nn.init.xavier_uniform_(self.film_gamma.weight)
+            nn.init.zeros_(self.film_gamma.bias)
+            nn.init.xavier_uniform_(self.film_beta.weight)
+            nn.init.zeros_(self.film_beta.bias)
+
 
     def forward(self, og_x, a=None, class_embedding=None):
         x = self.conv_input(self.nonlinearity(og_x))
