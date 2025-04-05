@@ -6,9 +6,9 @@ from torch.nn.utils import weight_norm as wn
 from utils import *
 
 class nin(nn.Module):
-    def __init__(self, dim_in, dim_out):
+    def __init__(self, dim_in, dim_out): #(160,80)
         super(nin, self).__init__()
-        self.lin_a = wn(nn.Linear(dim_in, dim_out))
+        self.lin_a = wn(nn.Linear(dim_in, dim_out)) #Linear(in_features=160, out_features=80, bias=True)
         self.dim_out = dim_out
 
     def forward(self, x):
@@ -116,23 +116,36 @@ skip connection parameter : 0 = no skip connection
                             2 = skip connection where skip input size === 2 * input size
 '''
 class gated_resnet(nn.Module):
-    def __init__(self, num_filters, conv_op, nonlinearity=concat_elu, skip_connection=0):
+    def __init__(self, num_filters, conv_op, nonlinearity=concat_elu, skip_connection=0, film=False):
         super(gated_resnet, self).__init__()
         self.skip_connection = skip_connection
         self.nonlinearity = nonlinearity
-        self.conv_input = conv_op(2 * num_filters, num_filters) # cuz of concat elu
+        self.film = film
+
+        self.conv_input = conv_op(2 * num_filters, num_filters) # cuz of concat elu 
 
         if skip_connection != 0 :
-            self.nin_skip = nin(2 * skip_connection * num_filters, num_filters)
+            self.nin_skip = nin(2 * skip_connection * num_filters, num_filters) #(160,80)
 
         self.dropout = nn.Dropout2d(0.5)
-        self.conv_out = conv_op(2 * num_filters, 2 * num_filters)
+        self.conv_out = conv_op(2 * num_filters, 2 * num_filters) #(160,160)
+
+        if self.film:
+            self.film_gamma = nn.Linear(num_filters,num_filters)
+            self.film_beta = nn.Linear(num_filters,num_filters)
 
 
-    def forward(self, og_x, a=None):
+    def forward(self, og_x, a=None, class_embedding=None):
         x = self.conv_input(self.nonlinearity(og_x))
         if a is not None :
             x += self.nin_skip(self.nonlinearity(a))
+        
+        if self.film and class_embedding is not None:
+            k = class_embedding.squeeze(-1).squeeze(-1)
+            gamma = self.film_gamma(k).unsqueeze(-1).unsqueeze(-1)
+            beta = self.film_beta(k).unsqueeze(-1).unsqueeze(-1)
+            x = gamma * x + beta
+            
         x = self.nonlinearity(x)
         x = self.dropout(x)
         x = self.conv_out(x)

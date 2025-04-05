@@ -3,27 +3,27 @@ from layers import *
 import pdb
 
 class PixelCNNLayer_up(nn.Module):
-    def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity):
+    def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity, film=False):
         super(PixelCNNLayer_up, self).__init__()
         self.nr_resnet = nr_resnet
         # stream from pixels above
         self.u_stream = nn.ModuleList([gated_resnet(nr_filters, down_shifted_conv2d,
-                                        resnet_nonlinearity, skip_connection=0)
+                                        resnet_nonlinearity, skip_connection=0, film=film)
                                             for _ in range(nr_resnet)])
         #u_stream이라는 instance 생성 
         #Modulelist는 리스트 형태로 여러 레이어 instance를 보관할 때 사용
 
         # stream from pixels above and to thes left
         self.ul_stream = nn.ModuleList([gated_resnet(nr_filters, down_right_shifted_conv2d,
-                                        resnet_nonlinearity, skip_connection=1)
+                                        resnet_nonlinearity, skip_connection=1, film=film)
                                             for _ in range(nr_resnet)])
 
     def forward(self, u, ul,class_embedding):
         u_list, ul_list = [], []
 
         for i in range(self.nr_resnet):
-            u  = self.u_stream[i](u)
-            ul = self.ul_stream[i](ul, a=u + class_embedding) #ul_stream은 gated_resnet의 instance이므로 gasted_resnet의 forward가 실행됨
+            u  = self.u_stream[i](u, class_embedding = class_embedding)
+            ul = self.ul_stream[i](ul, a=u + class_embedding,class_embedding=class_embedding) #ul_stream은 gated_resnet의 instance이므로 gasted_resnet의 forward가 실행됨
             u_list  += [u]
             ul_list += [ul]
 
@@ -31,31 +31,31 @@ class PixelCNNLayer_up(nn.Module):
 
 
 class PixelCNNLayer_down(nn.Module):
-    def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity):
+    def __init__(self, nr_resnet, nr_filters, resnet_nonlinearity, film=False):
         super(PixelCNNLayer_down, self).__init__()
         self.nr_resnet = nr_resnet
         # stream from pixels above
         self.u_stream  = nn.ModuleList([gated_resnet(nr_filters, down_shifted_conv2d,
-                                        resnet_nonlinearity, skip_connection=1)
+                                        resnet_nonlinearity, skip_connection=1, film=film)
                                             for _ in range(nr_resnet)])
 
         # stream from pixels above and to thes left
         self.ul_stream = nn.ModuleList([gated_resnet(nr_filters, down_right_shifted_conv2d,
-                                        resnet_nonlinearity, skip_connection=2)
+                                        resnet_nonlinearity, skip_connection=2, film=film)
                                             for _ in range(nr_resnet)])
 
     def forward(self, u, ul, u_list, ul_list,class_embedding):
         for i in range(self.nr_resnet):
-            u  = self.u_stream[i](u, a=u_list.pop()+ class_embedding)
+            u  = self.u_stream[i](u, a=u_list.pop()+ class_embedding, class_embedding = class_embedding)
             class_embedding_2=class_embedding.size(1) *2
-            ul = self.ul_stream[i](ul, a=torch.cat((u, ul_list.pop()), 1)+class_embedding_2) #(B, embedding_dim)
+            ul = self.ul_stream[i](ul, a=torch.cat((u, ul_list.pop()), 1)+class_embedding_2, class_embedding = class_embedding) #(B, embedding_dim)
 
         return u, ul
 
 
 class PixelCNN(nn.Module):
     def __init__(self, nr_resnet=5, nr_filters=80, nr_logistic_mix=10,
-                    resnet_nonlinearity='concat_elu', input_channels=3, num_classes=4, embedding_dim=80):
+                    resnet_nonlinearity='concat_elu', input_channels=3, num_classes=4, embedding_dim=80, film=False):
         super(PixelCNN, self).__init__()
         if resnet_nonlinearity == 'concat_elu' :
             self.resnet_nonlinearity = lambda x : concat_elu(x)
@@ -67,14 +67,14 @@ class PixelCNN(nn.Module):
         self.nr_logistic_mix = nr_logistic_mix
         self.right_shift_pad = nn.ZeroPad2d((1, 0, 0, 0))
         self.down_shift_pad  = nn.ZeroPad2d((0, 0, 1, 0))
-        self.embedding = nn.Embedding(num_classes, nr_filters)
+        self.embedding = nn.Embedding(num_classes, nr_filters) #Embedding(4,80)
 
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2 #[5,6,6]
         self.down_layers = nn.ModuleList([PixelCNNLayer_down(down_nr_resnet[i], nr_filters,
-                                                self.resnet_nonlinearity) for i in range(3)])
+                                                self.resnet_nonlinearity, film=film) for i in range(3)])
 
         self.up_layers   = nn.ModuleList([PixelCNNLayer_up(nr_resnet, nr_filters,
-                                                self.resnet_nonlinearity) for _ in range(3)])
+                                                self.resnet_nonlinearity, film=film) for _ in range(3)])
 
         self.downsize_u_stream  = nn.ModuleList([down_shifted_conv2d(nr_filters, nr_filters,
                                                     stride=(2,2)) for _ in range(2)])
@@ -118,9 +118,9 @@ class PixelCNN(nn.Module):
             x = torch.cat((x, padding), 1)
 
         ###      UP PASS    ###
-        x = x if sample else torch.cat((x, self.init_padding), 1)
-        u_list  = [self.u_init(x)]
-        ul_list = [self.ul_init[0](x) + self.ul_init[1](x)] #초기 feature map생성
+        x = x if sample else torch.cat((x, self.init_padding), 1) #(2,4,32,32)
+        u_list  = [self.u_init(x)] #(2,80,32,32)
+        ul_list = [self.ul_init[0](x) + self.ul_init[1](x)] #초기 feature map생성 #(2,80,32,32)
         for i in range(3):
             # resnet block
             u_out, ul_out = self.up_layers[i](u_list[-1], ul_list[-1],class_embedding)
@@ -145,7 +145,7 @@ class PixelCNN(nn.Module):
                 u  = self.upsize_u_stream[i](u)
                 ul = self.upsize_ul_stream[i](ul)
 
-        x_out = self.nin_out(F.elu(ul))
+        x_out = self.nin_out(F.elu(ul)) #(2,100,32,32)
         # pdb.set_trace()
 
         assert len(u_list) == len(ul_list) == 0, pdb.set_trace()
