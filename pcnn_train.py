@@ -12,9 +12,10 @@ from tqdm import tqdm
 from pprint import pprint
 import argparse
 from pytorch_fid.fid_score import calculate_fid_given_paths
+from transformers import get_cosine_schedule_with_warmup
 import pdb
 
-def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, mode = 'training'):
+def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, mode = 'training', scheduler=None):
     if mode == 'training':
         model.train()
     else:
@@ -39,6 +40,8 @@ def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, m
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            if scheduler:
+                scheduler.step()  
         
     if args.en_wandb:
         wandb.log({mode + "-Average-BPD" : loss_tracker.get_mean()})
@@ -201,7 +204,17 @@ if __name__ == '__main__':
         print('model parameters loaded')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=args.lr_decay)
+    steps_per_epoch = len(train_loader)
+    total_steps = args.max_epochs * steps_per_epoch
+    warmup_steps = int(0.05 * total_steps)  # 5% warm-up
+
+    # scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=args.lr_decay)
+    scheduler = get_cosine_schedule_with_warmup(
+    optimizer, 
+    num_warmup_steps=warmup_steps, 
+    num_training_steps=total_steps
+)
+
     
     for epoch in tqdm(range(args.max_epochs)):
         train_or_test(model = model, 
@@ -211,7 +224,8 @@ if __name__ == '__main__':
                       device = device, 
                       args = args, 
                       epoch = epoch, 
-                      mode = 'training')
+                      mode = 'training',
+                      scheduler=scheduler)
         
         # decrease learning rate
         scheduler.step()

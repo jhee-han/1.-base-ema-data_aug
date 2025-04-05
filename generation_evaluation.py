@@ -27,7 +27,6 @@ def my_sample(model, gen_data_dir, sample_batch_size = 25, obs = (3,32,32), samp
     for label in my_bidict:
         print(f"Label: {label}")
         #generate images for each label, each label has 25 images
-
         nr_label = my_bidict[label]
         labels = torch.full((sample_batch_size,), nr_label, dtype=torch.long, device=device)
         sample_t = sample(model, sample_batch_size, obs, sample_op,labels)
