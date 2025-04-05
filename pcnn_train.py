@@ -191,7 +191,7 @@ if __name__ == '__main__':
     input_channels = args.obs[0]
     
     def loss_op(real, fake, Bayes=False):
-        return discretized_mix_logistic_loss(real, fake, Bayes=False)
+        return discretized_mix_logistic_loss(real, fake, Bayes=Bayes)
 
     sample_op = lambda x : sample_from_discretized_mix_logistic(x, args.nr_logistic_mix)
 

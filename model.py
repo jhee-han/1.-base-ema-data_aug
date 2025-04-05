@@ -106,6 +106,9 @@ class PixelCNN(nn.Module):
         class_embedding =self.embedding(class_labels)  # (B, embedding_dim)
         class_embedding = class_embedding.view(class_embedding.size(0),class_embedding.size(1),1,1) # (B, embedding_dim,1,1)
 
+        #Early Fusion
+        x = x + class_embedding
+
         if self.init_padding is not sample:
             xs = [int(y) for y in x.size()]
             padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
