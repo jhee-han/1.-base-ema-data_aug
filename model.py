@@ -69,7 +69,7 @@ class PixelCNN(nn.Module):
         self.down_shift_pad  = nn.ZeroPad2d((0, 0, 1, 0))
         self.embedding = nn.Embedding(num_classes, nr_filters) #Embedding(4,80)
         self.early_fusion_true = True
-        self.early_fusion = nn.Conv2d(input_channels=3, out_channels=nr_filters, kernel_size=1) 
+        self.early_fusion = nn.Conv2d(3, nr_filters, kernel_size=1) 
 
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2 #[5,6,6]
         self.down_layers = nn.ModuleList([PixelCNNLayer_down(down_nr_resnet[i], nr_filters,
