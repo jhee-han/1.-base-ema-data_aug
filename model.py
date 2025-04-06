@@ -109,7 +109,7 @@ class PixelCNN(nn.Module):
         class_embedding = class_embedding.view(class_embedding.size(0),class_embedding.size(1),1,1) # (B, embedding_dim,1,1)
 
         #Early Fusion
-        if early_fusion_true:
+        if self.early_fusion_true:
             x = class_embedding + self.early_fusion(x)
 
 
