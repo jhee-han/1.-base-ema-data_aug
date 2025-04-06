@@ -35,7 +35,9 @@ def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, m
         else:
             loss = loss_op(model_input, model_output,Bayes=True)
 
-        loss_tracker.update(loss.item()/deno)
+        # loss_tracker.update(loss.item()/deno)
+        loss_tracker.update(loss.mean().item() / deno)
+
         if mode == 'training':
             optimizer.zero_grad()
             loss.backward()

@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     #TODO: Begin of your code
     #Load your model and generate images in the gen_data_dir, feel free to modify the model
-    model = PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,num_classes=4, embedding_dim=40, film=True)
+    model = PixelCNN(nr_resnet=5, nr_filters=80, input_channels=3, nr_logistic_mix=10,num_classes=4, embedding_dim=40, film=True)
     model.load_state_dict(torch.load('./models/conditional_pixelcnn_11.pth'))
     model = model.to(device)
     model = model.eval()
