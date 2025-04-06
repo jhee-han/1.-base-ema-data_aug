@@ -71,6 +71,11 @@ class PixelCNN(nn.Module):
         self.early_fusion_true = True
         self.early_fusion = nn.Conv2d(3, nr_filters, kernel_size=1) 
 
+        if self.early_fusion_true:
+            self.u_init = down_shifted_conv2d(nr_filters, nr_filters, filter_size=(2,3), shift_output_down=True)
+        else:
+            self.u_init = down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
+
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2 #[5,6,6]
         self.down_layers = nn.ModuleList([PixelCNNLayer_down(down_nr_resnet[i], nr_filters,
                                                 self.resnet_nonlinearity, film=film) for i in range(3)])
@@ -90,7 +95,7 @@ class PixelCNN(nn.Module):
         self.upsize_ul_stream = nn.ModuleList([down_right_shifted_deconv2d(nr_filters,
                                                     nr_filters, stride=(2,2)) for _ in range(2)])
 
-        self.u_init = down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,3),
+        self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3),
                         shift_output_down=True)
 
         self.ul_init = nn.ModuleList([down_shifted_conv2d(input_channels + 1, nr_filters,
@@ -108,6 +113,12 @@ class PixelCNN(nn.Module):
         class_embedding =self.embedding(class_labels)  # (B, embedding_dim) 
         class_embedding = class_embedding.view(class_embedding.size(0),class_embedding.size(1),1,1) # (B, embedding_dim,1,1)
 
+        #Early Fusion
+        if self.early_fusion_true:
+            x=self.early_fusion(x)
+            x = class_embedding + x #torch.Size([2, 80, 32, 32])
+            # pdb.set_trace()
+
         if self.init_padding is not sample:
             xs = [int(y) for y in x.size()]
             padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
@@ -118,15 +129,9 @@ class PixelCNN(nn.Module):
             padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
             padding = padding.cuda() if x.is_cuda else padding
             x = torch.cat((x, padding), 1)
-        
-        #Early Fusion
-        if self.early_fusion_true:
-            x=self.early_fusion(x)
-            x = class_embedding + x #torch.Size([2, 80, 32, 32])
-            # pdb.set_trace()
 
         ###      UP PASS    ###
-        x = x if sample else torch.cat((x, self.init_padding), 1) #(2,80,32,32)
+        x = x if sample else torch.cat((x, self.init_padding), 1)
         u_list  = [self.u_init(x)] #(2,80,32,32)
         ul_list = [self.ul_init[0](x) + self.ul_init[1](x)] #초기 feature map생성 #(2,80,32,32)
         for i in range(3):
