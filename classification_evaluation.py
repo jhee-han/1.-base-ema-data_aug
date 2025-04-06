@@ -38,7 +38,7 @@ def get_label(model, model_input, device):
         a_log_likelihood.append(log_likelihood.view(-1,1))
 
     log_likelihood = torch.cat(a_log_likelihood,dim=1)
-    print("log_likelihood shape:", log_likelihood.shape)  # (B, 4) 가 나와야 해
+    # print("log_likelihood shape:", log_likelihood.shape)  # (B, 4) 가 나와야 해
     answer = torch.argmax(log_likelihood,dim=1)
     return answer
 # End of your code
@@ -55,8 +55,8 @@ def classifier(model, data_loader, device):
         correct_num = torch.sum(answer == original_label)
         acc_tracker.update(correct_num.item(), model_input.shape[0])
     
-    return acc_tracker.get_ratio()        
-
+    return acc_tracker.get_ratio()
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
