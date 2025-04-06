@@ -75,6 +75,20 @@ class PixelCNN(nn.Module):
         #     self.u_init = down_shifted_conv2d(nr_filters, nr_filters, filter_size=(2,3), shift_output_down=True)
         # else:
         #     self.u_init = down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
+        if self.early_fusion_true:
+            # early fusion 사용: 입력 x는 self.early_fusion(x) 후 (B, nr_filters, H, W)임.
+            # 이후 padding 채널을 붙여 (B, nr_filters+1, H, W)로 만듦.
+            self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
+            self.ul_init = nn.ModuleList([
+                down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(1,3), shift_output_down=True),
+                down_right_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,1), shift_output_right=True)
+            ])
+        else:
+            self.u_init = down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
+            self.ul_init = nn.ModuleList([
+                down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(1,3), shift_output_down=True),
+                down_right_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,1), shift_output_right=True)
+            ])
 
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2 #[5,6,6]
         self.down_layers = nn.ModuleList([PixelCNNLayer_down(down_nr_resnet[i], nr_filters,
@@ -95,13 +109,13 @@ class PixelCNN(nn.Module):
         self.upsize_ul_stream = nn.ModuleList([down_right_shifted_deconv2d(nr_filters,
                                                     nr_filters, stride=(2,2)) for _ in range(2)])
 
-        self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3),
-                        shift_output_down=True)
+        # self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3),
+        #                 shift_output_down=True)
 
-        self.ul_init = nn.ModuleList([down_shifted_conv2d(input_channels + 1, nr_filters,
-                                            filter_size=(1,3), shift_output_down=True),
-                                       down_right_shifted_conv2d(input_channels + 1, nr_filters,
-                                            filter_size=(2,1), shift_output_right=True)])
+        # self.ul_init = nn.ModuleList([down_shifted_conv2d(input_channels + 1, nr_filters,
+        #                                     filter_size=(1,3), shift_output_down=True),
+        #                                down_right_shifted_conv2d(input_channels + 1, nr_filters,
+        #                                     filter_size=(2,1), shift_output_right=True)])
 
         num_mix = 3 if self.input_channels == 1 else 10
         self.nin_out = nin(nr_filters, num_mix * nr_logistic_mix)
@@ -177,23 +191,23 @@ class PixelCNN(nn.Module):
         return x_out
     
     
-class random_classifier(nn.Module):
-    def __init__(self, NUM_CLASSES):
-        super(random_classifier, self).__init__()
-        self.NUM_CLASSES = NUM_CLASSES
-        self.fc = nn.Linear(3, NUM_CLASSES)
-        print("Random classifier initialized")
-        # create a folder
-        if os.path.join(os.path.dirname(__file__), 'models') not in os.listdir():
-            os.mkdir(os.path.join(os.path.dirname(__file__), 'models'))
-        torch.save(self.state_dict(), os.path.join(os.path.dirname(__file__), 'models/conditional_pixelcnn.pth'))
-    def forward(self, x, device):
-        return torch.randint(0, self.NUM_CLASSES, (x.shape[0],)).to(device)
+# class random_classifier(nn.Module):
+#     def __init__(self, NUM_CLASSES):
+#         super(random_classifier, self).__init__()
+#         self.NUM_CLASSES = NUM_CLASSES
+#         self.fc = nn.Linear(3, NUM_CLASSES)
+#         print("Random classifier initialized")
+#         # create a folder
+#         if os.path.join(os.path.dirname(__file__), 'models') not in os.listdir():
+#             os.mkdir(os.path.join(os.path.dirname(__file__), 'models'))
+#         torch.save(self.state_dict(), os.path.join(os.path.dirname(__file__), 'models/conditional_pixelcnn.pth'))
+#     def forward(self, x, device):
+#         return torch.randint(0, self.NUM_CLASSES, (x.shape[0],)).to(device)
     
-    if __name__ == '__main__':
-        dummy_input = torch.randn(2, 3, 32, 32)  # (batch, channels, height, width)
-        dummy_label = torch.randint(0, 4, (2,))  # 예: 4개의 클래스 중 랜덤한 2개 클래스
+# if __name__ == '__main__':
+#     dummy_input = torch.randn(2, 3, 32, 32)  # (batch, channels, height, width)
+#     dummy_label = torch.randint(0, 4, (2,))  # 예: 4개의 클래스 중 랜덤한 2개 클래스
 
-        model = PixelCNN()
-        output = model(dummy_input, dummy_label)
-        print("Output shape:", output.shape)
+#     model = PixelCNN()
+#     output = model(dummy_input, dummy_label)
+#     print("Output shape:", output.shape)

@@ -10,3 +10,4 @@
 
 python pcnn_train.py --batch_size 64 --sample_batch_size 32 --sampling_interval 10 --save_interval 20 --dataset cpen455 --nr_resnet 5 --nr_filters 80 --nr_logistic_mix 10 --lr 0.002 --max_epochs 50 --en_wandb True --tag 12_warmup_cosine_baseline
 !python pcnn_train.py --batch_size 64 --sample_batch_size 32 --sampling_interval 10 --save_interval 20 --dataset cpen455 --nr_resnet 5 --nr_filters 80 --nr_logistic_mix 10 --lr 0.0002 --max_epochs 20 --en_wandb True --tag 15_warmup_cosine_baseline
+!python pcnn_train.py --batch_size 16 --sample_batch_size 32 --sampling_interval 10 --save_interval 20 --dataset cpen455 --nr_resnet 5 --nr_filters 80 --nr_logistic_mix 10 --lr 0.0002 --max_epochs 200 --en_wandb True --tag 16
