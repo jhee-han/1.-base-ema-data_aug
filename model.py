@@ -105,13 +105,8 @@ class PixelCNN(nn.Module):
 
     def forward(self, x,class_labels, sample=False):
         # similar as done in the tf repo :
-        class_embedding =self.embedding(class_labels)  # (B, embedding_dim)
+        class_embedding =self.embedding(class_labels)  # (B, embedding_dim) 
         class_embedding = class_embedding.view(class_embedding.size(0),class_embedding.size(1),1,1) # (B, embedding_dim,1,1)
-
-        #Early Fusion
-        if self.early_fusion_true:
-            x = class_embedding + self.early_fusion(x)
-
 
         if self.init_padding is not sample:
             xs = [int(y) for y in x.size()]
@@ -123,9 +118,15 @@ class PixelCNN(nn.Module):
             padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
             padding = padding.cuda() if x.is_cuda else padding
             x = torch.cat((x, padding), 1)
+        
+        #Early Fusion
+        if self.early_fusion_true:
+            x=self.early_fusion(x)
+            x = class_embedding + x #torch.Size([2, 80, 32, 32])
+            # pdb.set_trace()
 
         ###      UP PASS    ###
-        x = x if sample else torch.cat((x, self.init_padding), 1) #(2,4,32,32)
+        x = x if sample else torch.cat((x, self.init_padding), 1) #(2,80,32,32)
         u_list  = [self.u_init(x)] #(2,80,32,32)
         ul_list = [self.ul_init[0](x) + self.ul_init[1](x)] #초기 feature map생성 #(2,80,32,32)
         for i in range(3):
