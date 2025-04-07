@@ -15,7 +15,8 @@ from pytorch_fid.fid_score import calculate_fid_given_paths
 from transformers import get_cosine_schedule_with_warmup
 import pdb
 
-def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, mode = 'training', scheduler=None):
+
+def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, mode = 'training', ema=None):
     if mode == 'training':
         model.train()
     else:
@@ -42,8 +43,9 @@ def train_or_test(model, data_loader, optimizer, loss_op, device, args, epoch, m
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if scheduler:
-                scheduler.step()  
+            if ema is not None:          
+                ema.update(model)
+
         
     if args.en_wandb:
         wandb.log({mode + "-Average-BPD" : loss_tracker.get_mean()})
@@ -167,22 +169,33 @@ if __name__ == '__main__':
             raise Exception('{} dataset not in {cifar10, cifar100}'.format(args.dataset))
     
     elif "cpen455" in args.dataset:
-        ds_transforms = transforms.Compose([transforms.Resize((32, 32)), rescaling])
+        # ds_transforms = transforms.Compose([transforms.Resize((32, 32)), rescaling]) #original
+        train_transforms = transforms.Compose([
+        transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+        transforms.RandomHorizontalFlip(),
+        rescaling
+        ])
+
+        val_transforms = transforms.Compose([
+        transforms.Resize((32, 32)),
+        rescaling
+        ])
+
         train_loader = torch.utils.data.DataLoader(CPEN455Dataset(root_dir=args.data_dir, 
                                                                   mode = 'train', 
-                                                                  transform=ds_transforms), 
+                                                                  transform=train_transforms), #ds_transform to train_transforms
                                                    batch_size=args.batch_size, 
                                                    shuffle=True, 
                                                    **kwargs)
         test_loader  = torch.utils.data.DataLoader(CPEN455Dataset(root_dir=args.data_dir, 
                                                                   mode = 'test', 
-                                                                  transform=ds_transforms), 
+                                                                  transform=val_transforms), #ds_transform to val_transforms
                                                    batch_size=args.batch_size, 
                                                    shuffle=True, 
                                                    **kwargs)
         val_loader  = torch.utils.data.DataLoader(CPEN455Dataset(root_dir=args.data_dir, 
                                                                   mode = 'validation', 
-                                                                  transform=ds_transforms), 
+                                                                  transform=val_transforms), #ds_transform to val_transforms
                                                    batch_size=args.batch_size, 
                                                    shuffle=True, 
                                                    **kwargs)
@@ -211,6 +224,8 @@ if __name__ == '__main__':
     # warmup_steps = int(0.05 * total_steps)  # 5% warm-up
 
     scheduler = lr_scheduler.StepLR(optimizer, step_size=1, gamma=args.lr_decay)
+    ema = EMA(model, decay=0.999)
+
 #     scheduler = get_cosine_schedule_with_warmup(
 #     optimizer, 
 #     num_warmup_steps=warmup_steps, 
@@ -227,7 +242,8 @@ if __name__ == '__main__':
                       args = args, 
                       epoch = epoch, 
                       mode = 'training',
-                      scheduler=scheduler)
+                      ema = ema)
+
         
         # decrease learning rate
         scheduler.step()
@@ -251,6 +267,9 @@ if __name__ == '__main__':
         
         if epoch % args.sampling_interval == 0:
             print('......sampling......')
+
+            ema.copy_to(model)
+
             class_labels = torch.tensor([0, 1, 2, 3] * (args.sample_batch_size // 4), device=device) #unconditional 일 때 label이 필요 없으면 여기 label정의하지 않는 것?
             #pixelcnn에서 label을 가지고 오게 하는 것?
             sample_t = sample(model, args.sample_batch_size, args.obs, sample_op,class_labels) #conditional
@@ -270,12 +289,15 @@ if __name__ == '__main__':
             if args.en_wandb:
                 wandb.log({"samples": sample_result,
                             "FID": fid_score})
+            ema.restore(model)
         
         if (epoch + 1) % args.save_interval == 0: 
             if not os.path.exists("models"):
                 os.makedirs("models")
-            torch.save(model.state_dict(), 'models/{}_{}.pth'.format(model_name, epoch))
 
+            ema.copy_to(model)
+            torch.save(model.state_dict(), 'models/{}_{}.pth'.format(model_name, epoch))
+            ema.restore(model)
 
     save_name = f'models/conditional_pixelcnn_{args.tag}.pth'
     torch.save(model.state_dict(), save_name)
