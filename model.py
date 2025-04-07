@@ -75,20 +75,20 @@ class PixelCNN(nn.Module):
         #     self.u_init = down_shifted_conv2d(nr_filters, nr_filters, filter_size=(2,3), shift_output_down=True)
         # else:
         #     self.u_init = down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
-        if self.early_fusion_true:
-            # early fusion 사용: 입력 x는 self.early_fusion(x) 후 (B, nr_filters, H, W)임.
-            # 이후 padding 채널을 붙여 (B, nr_filters+1, H, W)로 만듦.
-            self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
-            self.ul_init = nn.ModuleList([
-                down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(1,3), shift_output_down=True),
-                down_right_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,1), shift_output_right=True)
-            ])
-        else:
-            self.u_init = down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
-            self.ul_init = nn.ModuleList([
-                down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(1,3), shift_output_down=True),
-                down_right_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,1), shift_output_right=True)
-            ])
+        # if self.early_fusion_true:
+        #     # early fusion 사용: 입력 x는 self.early_fusion(x) 후 (B, nr_filters, H, W)임.
+        #     # 이후 padding 채널을 붙여 (B, nr_filters+1, H, W)로 만듦.
+        #     self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
+        #     self.ul_init = nn.ModuleList([
+        #         down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(1,3), shift_output_down=True),
+        #         down_right_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,1), shift_output_right=True)
+        #     ])
+        # else:
+        #     self.u_init = down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,3), shift_output_down=True)
+        #     self.ul_init = nn.ModuleList([
+        #         down_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(1,3), shift_output_down=True),
+        #         down_right_shifted_conv2d(input_channels + 1, nr_filters, filter_size=(2,1), shift_output_right=True)
+        #     ])
 
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2 #[5,6,6]
         self.down_layers = nn.ModuleList([PixelCNNLayer_down(down_nr_resnet[i], nr_filters,
@@ -109,13 +109,13 @@ class PixelCNN(nn.Module):
         self.upsize_ul_stream = nn.ModuleList([down_right_shifted_deconv2d(nr_filters,
                                                     nr_filters, stride=(2,2)) for _ in range(2)])
 
-        # self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3),
-        #                 shift_output_down=True)
+        self.u_init = down_shifted_conv2d(nr_filters + 1, nr_filters, filter_size=(2,3),
+                        shift_output_down=True)
 
-        # self.ul_init = nn.ModuleList([down_shifted_conv2d(input_channels + 1, nr_filters,
-        #                                     filter_size=(1,3), shift_output_down=True),
-        #                                down_right_shifted_conv2d(input_channels + 1, nr_filters,
-        #                                     filter_size=(2,1), shift_output_right=True)])
+        self.ul_init = nn.ModuleList([down_shifted_conv2d(input_channels + 1, nr_filters,
+                                            filter_size=(1,3), shift_output_down=True),
+                                       down_right_shifted_conv2d(input_channels + 1, nr_filters,
+                                            filter_size=(2,1), shift_output_right=True)])
 
         num_mix = 3 if self.input_channels == 1 else 10
         self.nin_out = nin(nr_filters, num_mix * nr_logistic_mix)
@@ -127,36 +127,36 @@ class PixelCNN(nn.Module):
         class_embedding =self.embedding(class_labels)  # (B, embedding_dim) 
         class_embedding = class_embedding.view(class_embedding.size(0),class_embedding.size(1),1,1) # (B, embedding_dim,1,1)
 
-        #Early Fusion
-        if self.early_fusion_true:
-            x=self.early_fusion(x)
-            x = class_embedding + x #torch.Size([2, 80, 32, 32])
-            # pdb.set_trace()
+        # #Early Fusion
+        # if self.early_fusion_true:
+        #     x=self.early_fusion(x)
+        #     x = class_embedding + x #torch.Size([2, 80, 32, 32])
+        #     # pdb.set_trace()
 
-        if not sample and self.init_padding is None:
-            xs = list(x.size())
-            self.init_padding = torch.ones(xs[0], 1, xs[2], xs[3], device=x.device)
-        if sample:
-            xs = list(x.size())
-            padding = torch.ones(xs[0], 1, xs[2], xs[3], device=x.device)
-            x = torch.cat((x, padding), 1)
-        else:
-            x = torch.cat((x, self.init_padding), 1)  # 최종 x: (B, nr_filters+1, H, W)
-
-
-        # if self.init_padding is not sample:
-        #     xs = [int(y) for y in x.size()]
-        #     padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
-        #     self.init_padding = padding.cuda() if x.is_cuda else padding
-
-        # if sample :
-        #     xs = [int(y) for y in x.size()]
-        #     padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
-        #     padding = padding.cuda() if x.is_cuda else padding
+        # if not sample and self.init_padding is None:
+        #     xs = list(x.size())
+        #     self.init_padding = torch.ones(xs[0], 1, xs[2], xs[3], device=x.device)
+        # if sample:
+        #     xs = list(x.size())
+        #     padding = torch.ones(xs[0], 1, xs[2], xs[3], device=x.device)
         #     x = torch.cat((x, padding), 1)
+        # else:
+        #     x = torch.cat((x, self.init_padding), 1)  # 최종 x: (B, nr_filters+1, H, W)
+
+
+        if self.init_padding is not sample:
+            xs = [int(y) for y in x.size()]
+            padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
+            self.init_padding = padding.cuda() if x.is_cuda else padding
+
+        if sample :
+            xs = [int(y) for y in x.size()]
+            padding = Variable(torch.ones(xs[0], 1, xs[2], xs[3]), requires_grad=False)
+            padding = padding.cuda() if x.is_cuda else padding
+            x = torch.cat((x, padding), 1)
 
         ###      UP PASS    ###
-        # x = x if sample else torch.cat((x, self.init_padding), 1)
+        x = x if sample else torch.cat((x, self.init_padding), 1)
         u_list  = [self.u_init(x)] #(2,80,32,32)
         ul_list = [self.ul_init[0](x) + self.ul_init[1](x)] #초기 feature map생성 #(2,80,32,32)
         for i in range(3):
