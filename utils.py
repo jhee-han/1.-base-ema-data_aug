@@ -7,7 +7,7 @@ from torch.nn.utils import weight_norm as wn
 import numpy as np
 import os
 from PIL import Image
-import pdb
+
 
 
 def concat_elu(x):
@@ -126,17 +126,17 @@ def to_one_hot(tensor, n, fill_with=1.):
     return Variable(one_hot)
 
 
-def sample_from_discretized_mix_logistic(l, nr_mix):
+def sample_from_discretized_mix_logistic(l, nr_mix): #torch.Size([25, 50, 32, 32]),5
     # Pytorch ordering
     l = l.permute(0, 2, 3, 1) #(B,H,W,C)
-    ls = [int(y) for y in l.size()]
-    xs = ls[:-1] + [3] #(B,H,W,3)
+    ls = [int(y) for y in l.size()] #[25, 32, 32, 50]
+    xs = ls[:-1] + [3] #(B,H,W,3) #[25,32,32,3]
 
     # unpack parameters
-    logit_probs = l[:, :, :, :nr_mix]
+    logit_probs = l[:, :, :, :nr_mix] #torch.Size([25, 32, 32, 5])
     l = l[:, :, :, nr_mix:].contiguous().view(xs + [nr_mix * 3]) #(B,H,W,nr_mix * 3) pixel mean,variance, rgb coefficient
     # sample mixture indicator from softmax
-    temp = torch.FloatTensor(logit_probs.size()) #(B,H,W,nr_mix )
+    temp = torch.FloatTensor(logit_probs.size()) #(B,H,W,nr_mix ) #torch.Size([25, 32, 32, 5])
     if l.is_cuda : temp = temp.cuda()
     temp.uniform_(1e-5, 1. - 1e-5)
     temp = logit_probs.data - torch.log(- torch.log(temp)) #Gumbel-Max Trick
@@ -165,7 +165,7 @@ def sample_from_discretized_mix_logistic(l, nr_mix):
 
     out = torch.cat([x0.view(xs[:-1] + [1]), x1.view(xs[:-1] + [1]), x2.view(xs[:-1] + [1])], dim=3)
     # put back in Pytorch ordering
-    out = out.permute(0, 3, 1, 2)
+    out = out.permute(0, 3, 1, 2) #torch.Size([25, 3, 32, 32])
     return out
 
 
@@ -194,12 +194,12 @@ def right_shift(x, pad=None):
 def sample(model, sample_batch_size, obs, sample_op,labels): #obs는 이미지 크기 #[C,H,W]
     model.train(False)
     with torch.no_grad():
-        data = torch.zeros(sample_batch_size, obs[0], obs[1], obs[2])
+        data = torch.zeros(sample_batch_size, obs[0], obs[1], obs[2]) #torch.Size([25, 3, 32, 32])
         data = data.to(next(model.parameters()).device)
         for i in range(obs[1]):
             for j in range(obs[2]):
                 data_v = data
-                out   = model(data_v,class_labels=labels, sample=True)
+                out   = model(data_v,class_labels=labels, sample=True) #torch.Size([25, 50, 32, 32])
                 out_sample = sample_op(out)
                 data[:, :, i, j] = out_sample.data[:, :, i, j]
     return data

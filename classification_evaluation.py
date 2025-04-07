@@ -38,6 +38,7 @@ def get_label(model, model_input, device):
         a_log_likelihood.append(log_likelihood.view(-1,1))
 
     log_likelihood = torch.cat(a_log_likelihood,dim=1)
+    # print("log_likelihood shape:", log_likelihood.shape)  # (B, 4) 가 나와야 해
     answer = torch.argmax(log_likelihood,dim=1)
     return answer
 # End of your code
@@ -48,15 +49,14 @@ def classifier(model, data_loader, device):
     for batch_idx, item in enumerate(tqdm(data_loader)):
         model_input, categories = item
         model_input = model_input.to(device)
-        original_label = torch.tensor([item.item() for item in categories], dtype=torch.int64).to(device)
+        original_label = [my_bidict[item] for item in categories]
         original_label = torch.tensor(original_label, dtype=torch.int64).to(device)
         answer = get_label(model, model_input, device)
         correct_num = torch.sum(answer == original_label)
         acc_tracker.update(correct_num.item(), model_input.shape[0])
     
     return acc_tracker.get_ratio()
-        
-
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
@@ -82,13 +82,13 @@ if __name__ == '__main__':
 
     #TODO:Begin of your code
     #You should replace the random classifier with your trained model
-    model= PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5)
+    model= PixelCNN(nr_resnet=5, nr_filters=80, input_channels=3, nr_logistic_mix=10, film=True)
     #End of your code
     
     model = model.to(device)
     #Attention: the path of the model is fixed to './models/conditional_pixelcnn.pth'
     #You should save your model to this path
-    model_path = os.path.join(os.path.dirname(__file__), 'models/conditional_pixelcnn.pth') #이부분은 수정하면 안됨 나중에 돌려놓기기
+    model_path = os.path.join(os.path.dirname(__file__), 'models/conditional_pixelcnn_11.pth') #이부분은 수정하면 안됨 나중에 돌려놓기기
     
     #나중에 삭제하기 model.eval전까지
     # model_path = 'models/conditional_pixelcnn.pth'
@@ -97,11 +97,6 @@ if __name__ == '__main__':
         print('✅ model parameters loaded')
     else:
         raise FileNotFoundError(f"❌ Model file not found at {model_path}")
-    if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path))
-        print('model parameters loaded')
-    else:
-        raise FileNotFoundError(f"Model file not found at {model_path}")
 
     model.eval()
     

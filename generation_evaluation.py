@@ -27,11 +27,11 @@ def my_sample(model, gen_data_dir, sample_batch_size = 25, obs = (3,32,32), samp
     for label in my_bidict:
         print(f"Label: {label}")
         #generate images for each label, each label has 25 images
-
         nr_label = my_bidict[label]
         labels = torch.full((sample_batch_size,), nr_label, dtype=torch.long, device=device)
         sample_t = sample(model, sample_batch_size, obs, sample_op,labels)
-        sample_t = rescaling_inv(sample_t)
+        sample_t = rescaling_inv(sample_t) #torch.Size([25, 3, 32, 32])
+        # print("Sample min:", sample_t.min().item(), "max:", sample_t.max().item())
         save_images(sample_t, os.path.join(gen_data_dir), label=label)
     pass
 # End of your code
@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
     #TODO: Begin of your code
     #Load your model and generate images in the gen_data_dir, feel free to modify the model
-    model = PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5,num_classes=4, embedding_dim=40)
-    # model.load_state
+    model = PixelCNN(nr_resnet=5, nr_filters=80, input_channels=3, nr_logistic_mix=10,num_classes=4, embedding_dim=40, film=True)
+    model.load_state_dict(torch.load('./models/conditional_pixelcnn_11.pth'))
     model = model.to(device)
     model = model.eval()
     #End of your code
@@ -64,7 +64,6 @@ if __name__ == "__main__":
     paths = [gen_data_dir, ref_data_dir]
     print("#generated images: {:d}, #reference images: {:d}".format(
         len(os.listdir(gen_data_dir)), len(os.listdir(ref_data_dir))))
-
     try:
         fid_score = calculate_fid_given_paths(paths, BATCH_SIZE, device, dims=192)
         print("Dimension {:d} works! fid score: {}".format(192, fid_score, gen_data_dir))
